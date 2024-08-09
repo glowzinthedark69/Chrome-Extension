@@ -1,47 +1,50 @@
-// Load and display error logs
-chrome.runtime.sendMessage({ type: "getErrors" }, (response) => {
-  const errorList = document.getElementById("error-list");
-  errorList.innerHTML = ""; // Clear the list first
+chrome.runtime.sendMessage({ type: "getApiLogs" }, (response) => {
+  const apiList = document.getElementById("api-list");
+  apiList.innerHTML = ""; // Clear the list first
 
   if (response && response.length > 0) {
-    response.forEach((error) => {
+    response.forEach((apiCall) => {
       const listItem = document.createElement("li");
       listItem.innerHTML = `
           <div style="margin-bottom: 10px;">
-            <strong>Time:</strong> ${error.timeStamp}<br>
+            <strong>Time:</strong> ${apiCall.timeStamp}<br>
             <strong>Status Code:</strong> <span style="color: ${
-              error.statusCode >= 500 ? "red" : "orange"
-            };">${error.statusCode}</span><br>
+              apiCall.statusCode >= 500
+                ? "red"
+                : apiCall.statusCode >= 400
+                ? "orange"
+                : "green"
+            }">${apiCall.statusCode}</span><br>
             <strong>URL:</strong> <a href="${
-              error.url
-            }" target="_blank" class="url-truncate" title="${error.url}">${
-        error.url
+              apiCall.url
+            }" target="_blank" class="url-truncate" title="${apiCall.url}">${
+        apiCall.url
       }</a><br>
-            <strong>Method:</strong> ${error.method || "N/A"}<br>
-            <strong>Request Body:</strong> <pre>${
-              error.requestBody ? error.requestBody : "N/A"
-            }</pre>
+            <strong>Method:</strong> ${apiCall.method}<br>
+            <strong>From Cache:</strong> ${apiCall.fromCache}<br>
+            <strong>IP:</strong> ${apiCall.ip}<br>
+            <strong>Initiator:</strong> ${apiCall.initiator}
           </div>
         `;
 
-      errorList.appendChild(listItem);
+      apiList.appendChild(listItem);
     });
   } else {
-    errorList.innerHTML = "<li>No errors captured.</li>";
+    apiList.innerHTML = "<li>No API calls captured.</li>";
   }
 });
 
 // Clear logs functionality
 document.getElementById("clear-logs").addEventListener("click", function () {
-  if (confirm("Are you sure you want to clear all error logs?")) {
-    // Clear the stored error logs in chrome.storage
-    chrome.storage.local.set({ errorLogs: [] }, () => {
+  if (confirm("Are you sure you want to clear all API logs?")) {
+    // Clear the stored API logs in chrome.storage
+    chrome.storage.local.set({ apiLogs: [] }, () => {
       // Clear the UI
-      const errorList = document.getElementById("error-list");
-      errorList.innerHTML = "<li>No errors captured.</li>";
+      const apiList = document.getElementById("api-list");
+      apiList.innerHTML = "<li>No API calls captured.</li>";
     });
 
     // Clear in-memory logs by sending a message to the background script
-    chrome.runtime.sendMessage({ type: "clearErrors" });
+    chrome.runtime.sendMessage({ type: "clearApiLogs" });
   }
 });

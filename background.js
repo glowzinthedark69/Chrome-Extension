@@ -1,80 +1,33 @@
-let errorLogs = [];
+let apiLogs = [];
 
+// Capture all API calls, regardless of status code
 chrome.webRequest.onCompleted.addListener(
   function (details) {
-    if (details.statusCode >= 400) {
-      const errorDetails = {
-        url: details.url,
-        method: details.method,
-        statusCode: details.statusCode,
-        timeStamp: new Date().toLocaleString(),
-        requestBody: details.requestBodyContext || null,
-      };
-
-      console.log("Error Captured:", errorDetails);
-      errorLogs.push(errorDetails);
-
-      // Save the logs to chrome.storage for persistence
-      chrome.storage.local.set({ errorLogs });
-
-      // Notify the popup with the error details
-      try {
-        chrome.runtime.sendMessage({
-          type: "networkError",
-          error: errorDetails,
-        });
-      } catch (error) {
-        console.warn("No listener available for the message:", error);
-      }
-
-      // Notify the user with a real-time notification
-      chrome.notifications.create({
-        type: "basic",
-        iconUrl: "icons/icon128.png",
-        title: `Error Captured: ${details.statusCode}`,
-        message: `Error on ${details.url}`,
-        priority: 2,
-      });
-    }
-  },
-  { urls: ["<all_urls>"] }
-);
-
-// Capture network-level errors such as net::ERR_NAME_NOT_RESOLVED
-chrome.webRequest.onErrorOccurred.addListener(
-  function (details) {
-    const errorDetails = {
+    const apiDetails = {
       url: details.url,
       method: details.method,
-      error: details.error, // This will include errors like net::ERR_NAME_NOT_RESOLVED
+      statusCode: details.statusCode,
       timeStamp: new Date().toLocaleString(),
-      requestBody: details.requestBodyContext || null,
+      fromCache: details.fromCache,
+      ip: details.ip || "N/A",
+      initiator: details.initiator || "N/A",
     };
 
-    console.log("Network Error Captured:", errorDetails);
-    errorLogs.push(errorDetails);
+    console.log("API Call Captured:", apiDetails);
+    apiLogs.push(apiDetails);
 
     // Save the logs to chrome.storage for persistence
-    chrome.storage.local.set({ errorLogs });
+    chrome.storage.local.set({ apiLogs });
 
-    // Notify the popup with the error details
+    // Notify the popup with the API call details
     try {
       chrome.runtime.sendMessage({
-        type: "networkError",
-        error: errorDetails,
+        type: "apiCall",
+        apiDetails: apiDetails,
       });
     } catch (error) {
       console.warn("No listener available for the message:", error);
     }
-
-    // Notify the user with a real-time notification
-    chrome.notifications.create({
-      type: "basic",
-      iconUrl: "icons/icon128.png",
-      title: `Network Error Captured`,
-      message: `Error on ${details.url}: ${details.error}`,
-      priority: 2,
-    });
   },
   { urls: ["<all_urls>"] }
 );
@@ -103,15 +56,13 @@ chrome.webRequest.onBeforeRequest.addListener(
 
 // Clear in-memory logs when requested
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  if (request.type === "clearErrors") {
-    errorLogs = []; // Clear in-memory logs
-    chrome.storage.local.set({ errorLogs: [] }); // Clear persistent logs
-    console.log("Error logs cleared");
-  } else if (request.type === "getErrors") {
-    sendResponse(errorLogs);
+  if (request.type === "clearApiLogs") {
+    apiLogs = []; // Clear in-memory logs
+    chrome.storage.local.set({ apiLogs: [] }); // Clear persistent logs
+    console.log("API logs cleared");
+  } else if (request.type === "getApiLogs") {
+    sendResponse(apiLogs);
   }
 });
 
-console.log(
-  "Background script with enhanced capture and clear functionality started"
-);
+console.log("Background script for capturing all API calls started");

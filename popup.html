@@ -1,18 +1,18 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Error Tracker</title>
+    <title>API Tracker</title>
     <style>
         body { 
             font-family: Arial, sans-serif; 
             padding: 10px; 
             background-color: #f9f9f9;
         }
-        #error-list { 
+        #api-list { 
             list-style-type: none; 
             padding: 0; 
         }
-        #error-list li { 
+        #api-list li { 
             padding: 10px; 
             margin-bottom: 10px; 
             background-color: #fff; 
@@ -32,6 +32,8 @@
         a { 
             color: #007bff; 
             text-decoration: none; 
+            word-wrap: break-word;
+            word-break: break-all;
         }
         a:hover { 
             text-decoration: underline; 
@@ -39,12 +41,13 @@
     </style>
 </head>
 <body>
-    <h2>Captured Errors</h2>
-    <ul id="error-list"></ul>
+    <h2>Captured API Calls</h2>
+    <ul id="api-list"></ul>
     <button id="clear-logs">Clear Logs</button>
     <script src="popup.js"></script>
 </body>
 </html>
+
 
 
 
