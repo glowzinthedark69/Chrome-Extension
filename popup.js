@@ -1,4 +1,4 @@
-// Request the error logs from the background script when the popup opens
+// Load and display error logs
 chrome.runtime.sendMessage({ type: "getErrors" }, (response) => {
   const errorList = document.getElementById("error-list");
   errorList.innerHTML = ""; // Clear the list first
@@ -6,7 +6,24 @@ chrome.runtime.sendMessage({ type: "getErrors" }, (response) => {
   if (response && response.length > 0) {
     response.forEach((error) => {
       const listItem = document.createElement("li");
-      listItem.textContent = `${error.timeStamp}: ${error.statusCode} - ${error.url}`;
+      listItem.innerHTML = `
+          <div style="margin-bottom: 10px;">
+            <strong>Time:</strong> ${error.timeStamp}<br>
+            <strong>Status Code:</strong> <span style="color: ${
+              error.statusCode >= 500 ? "red" : "orange"
+            };">${error.statusCode}</span><br>
+            <strong>URL:</strong> <a href="${
+              error.url
+            }" target="_blank" class="url-truncate" title="${error.url}">${
+        error.url
+      }</a><br>
+            <strong>Method:</strong> ${error.method || "N/A"}<br>
+            <strong>Request Body:</strong> <pre>${
+              error.requestBody ? error.requestBody : "N/A"
+            }</pre>
+          </div>
+        `;
+
       errorList.appendChild(listItem);
     });
   } else {
@@ -14,12 +31,17 @@ chrome.runtime.sendMessage({ type: "getErrors" }, (response) => {
   }
 });
 
-// Listen for real-time error updates from the background script
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  if (request.type === "networkError") {
-    const errorList = document.getElementById("error-list");
-    const listItem = document.createElement("li");
-    listItem.textContent = `${request.error.timeStamp}: ${request.error.statusCode} - ${request.error.url}`;
-    errorList.appendChild(listItem);
+// Clear logs functionality
+document.getElementById("clear-logs").addEventListener("click", function () {
+  if (confirm("Are you sure you want to clear all error logs?")) {
+    // Clear the stored error logs in chrome.storage
+    chrome.storage.local.set({ errorLogs: [] }, () => {
+      // Clear the UI
+      const errorList = document.getElementById("error-list");
+      errorList.innerHTML = "<li>No errors captured.</li>";
+    });
+
+    // Clear in-memory logs by sending a message to the background script
+    chrome.runtime.sendMessage({ type: "clearErrors" });
   }
 });
