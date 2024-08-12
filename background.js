@@ -31,14 +31,20 @@ chrome.webRequest.onCompleted.addListener(
     storeLogs("api", apiLogs);
 
     // Notify the popup with the API call details
-    try {
-      chrome.runtime.sendMessage({
+    chrome.runtime.sendMessage(
+      {
         type: "apiCall",
         apiDetails: apiDetails,
-      });
-    } catch (error) {
-      console.warn("No listener available for the message:", error);
-    }
+      },
+      function (response) {
+        if (chrome.runtime.lastError) {
+          console.warn(
+            "No listener available for the message:",
+            chrome.runtime.lastError.message
+          );
+        }
+      }
+    );
   },
   { urls: ["https://the-internet.herokuapp.com/*"] }
 );
@@ -93,7 +99,17 @@ console.error = function (...args) {
   // Store logs persistently
   storeLogs("error", errorLogs);
 
-  chrome.runtime.sendMessage({ type: "consoleError", data: errorDetails });
+  chrome.runtime.sendMessage(
+    { type: "consoleError", data: errorDetails },
+    function (response) {
+      if (chrome.runtime.lastError) {
+        console.warn(
+          "No listener available for the message:",
+          chrome.runtime.lastError.message
+        );
+      }
+    }
+  );
   originalConsoleError.apply(console, args);
 };
 
