@@ -1,13 +1,14 @@
 {
   "manifest_version": 3,
-  "name": "Simple Error Tracker",
-  "version": "1.0",
+  "name": "Enhanced Error and API Tracker",
+  "version": "2.0",
   "permissions": [
     "webRequest",
     "webRequestBlocking",
     "activeTab",
     "storage",
-    "notifications"
+    "notifications",
+    "scripting"
   ],
   "host_permissions": ["http://*/*", "https://*/*"],
   "background": {

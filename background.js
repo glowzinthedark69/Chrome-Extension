@@ -1,85 +1,55 @@
+let apiLogs = [];
 let errorLogs = [];
 
+// Helper function to store logs
+function storeLogs(type, logs) {
+  const storageKey = type === "api" ? "apiLogs" : "errorLogs";
+  chrome.storage.local.set({ [storageKey]: logs }, function () {
+    console.log(
+      `${type === "api" ? "API" : "Error"} logs stored successfully.`
+    );
+  });
+}
+
+// Capture all API calls to any URL that includes ".vndly.com/*"
 chrome.webRequest.onCompleted.addListener(
   function (details) {
-    if (details.statusCode >= 400) {
-      const errorDetails = {
-        url: details.url,
-        method: details.method,
-        statusCode: details.statusCode,
-        timeStamp: new Date().toLocaleString(),
-        requestBody: details.requestBodyContext || null,
-      };
-
-      console.log("Error Captured:", errorDetails);
-      errorLogs.push(errorDetails);
-
-      // Save the logs to chrome.storage for persistence
-      chrome.storage.local.set({ errorLogs });
-
-      // Notify the popup with the error details
-      try {
-        chrome.runtime.sendMessage({
-          type: "networkError",
-          error: errorDetails,
-        });
-      } catch (error) {
-        console.warn("No listener available for the message:", error);
-      }
-
-      // Notify the user with a real-time notification
-      chrome.notifications.create({
-        type: "basic",
-        iconUrl: "icons/icon128.png",
-        title: `Error Captured: ${details.statusCode}`,
-        message: `Error on ${details.url}`,
-        priority: 2,
-      });
-    }
-  },
-  { urls: ["<all_urls>"] }
-);
-
-// Capture network-level errors such as net::ERR_NAME_NOT_RESOLVED
-chrome.webRequest.onErrorOccurred.addListener(
-  function (details) {
-    const errorDetails = {
+    const apiDetails = {
       url: details.url,
       method: details.method,
-      error: details.error, // This will include errors like net::ERR_NAME_NOT_RESOLVED
+      statusCode: details.statusCode,
       timeStamp: new Date().toLocaleString(),
-      requestBody: details.requestBodyContext || null,
+      fromCache: details.fromCache,
+      ip: details.ip || "N/A",
+      initiator: details.initiator || "N/A",
     };
 
-    console.log("Network Error Captured:", errorDetails);
-    errorLogs.push(errorDetails);
+    console.log("API Call Captured:", apiDetails);
+    apiLogs.push(apiDetails);
 
-    // Save the logs to chrome.storage for persistence
-    chrome.storage.local.set({ errorLogs });
+    // Store logs persistently
+    storeLogs("api", apiLogs);
 
-    // Notify the popup with the error details
-    try {
-      chrome.runtime.sendMessage({
-        type: "networkError",
-        error: errorDetails,
-      });
-    } catch (error) {
-      console.warn("No listener available for the message:", error);
-    }
-
-    // Notify the user with a real-time notification
-    chrome.notifications.create({
-      type: "basic",
-      iconUrl: "icons/icon128.png",
-      title: `Network Error Captured`,
-      message: `Error on ${details.url}: ${details.error}`,
-      priority: 2,
-    });
+    // Notify the popup with the API call details
+    chrome.runtime.sendMessage(
+      {
+        type: "apiCall",
+        apiDetails: apiDetails,
+      },
+      function (response) {
+        if (chrome.runtime.lastError) {
+          console.warn(
+            "No listener available for the message:",
+            chrome.runtime.lastError.message
+          );
+        }
+      }
+    );
   },
-  { urls: ["<all_urls>"] }
+  { urls: ["https://the-internet.herokuapp.com/*"] }
 );
 
-// Capture Request Body for POST Requests
+// Capture Request Body for POST Requests to ".vndly.com/*"
 chrome.webRequest.onBeforeRequest.addListener(
   function (details) {
     let requestBody = null;
@@ -97,21 +67,65 @@ chrome.webRequest.onBeforeRequest.addListener(
 
     return {};
   },
-  { urls: ["<all_urls>"] },
+  { urls: ["https://the-internet.herokuapp.com/*"] },
   ["requestBody"]
 );
 
-// Clear in-memory logs when requested
+// Monitor network failures for ".vndly.com/*"
+chrome.webRequest.onErrorOccurred.addListener(
+  function (details) {
+    console.warn("Network Error Captured:", details);
+    chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
+      chrome.tabs.sendMessage(tabs[0].id, {
+        type: "networkError",
+        url: details.url,
+      });
+    });
+  },
+  { urls: ["https://the-internet.herokuapp.com/*"] }
+);
+
+// Capture console errors
+const originalConsoleError = console.error;
+console.error = function (...args) {
+  const errorDetails = {
+    type: "consoleError",
+    message: args.join(" "),
+    timestamp: new Date().toISOString(),
+  };
+  console.log("Console Error Captured:", errorDetails);
+  errorLogs.push(errorDetails);
+
+  // Store logs persistently
+  storeLogs("error", errorLogs);
+
+  chrome.runtime.sendMessage(
+    { type: "consoleError", data: errorDetails },
+    function (response) {
+      if (chrome.runtime.lastError) {
+        console.warn(
+          "No listener available for the message:",
+          chrome.runtime.lastError.message
+        );
+      }
+    }
+  );
+  originalConsoleError.apply(console, args);
+};
+
+// Clear logs and respond to messages
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  if (request.type === "clearErrors") {
-    errorLogs = []; // Clear in-memory logs
-    chrome.storage.local.set({ errorLogs: [] }); // Clear persistent logs
-    console.log("Error logs cleared");
-  } else if (request.type === "getErrors") {
-    sendResponse(errorLogs);
+  if (request.type === "getApiLogs") {
+    sendResponse(apiLogs || []);
+  } else if (request.type === "getErrorLogs") {
+    sendResponse(errorLogs || []);
+  } else if (request.type === "clearApiLogs") {
+    apiLogs = [];
+    chrome.storage.local.set({ apiLogs: [] });
+    sendResponse({ status: "success" });
+  } else if (request.type === "clearErrorLogs") {
+    errorLogs = [];
+    chrome.storage.local.set({ errorLogs: [] });
+    sendResponse({ status: "success" });
   }
 });
-
-console.log(
-  "Background script with enhanced capture and clear functionality started"
-);
