@@ -1,52 +1,83 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Enhanced Error and API Tracker</title>
+    <title>Enhanced API and Error Tracker</title>
     <style>
-        body { 
-            font-family: Arial, sans-serif; 
-            padding: 10px; 
+        body {
+            font-family: Arial, sans-serif;
+            padding: 10px;
             background-color: #f9f9f9;
         }
-        #api-list { 
-            list-style-type: none; 
-            padding: 0; 
+        .tabs {
+            display: flex;
+            justify-content: space-around;
+            margin-bottom: 10px;
+            cursor: pointer;
         }
-        #api-list li { 
-            padding: 10px; 
-            margin-bottom: 10px; 
-            background-color: #fff; 
-            border: 1px solid #ddd; 
+        .tablink {
+            padding: 10px 20px;
+            background-color: #ddd;
+            border: none;
+            outline: none;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+        .tablink.active {
+            background-color: #007bff;
+            color: white;
+        }
+        .tabcontent {
+            display: none;
+            padding: 10px;
+            border: 1px solid #ddd;
             border-radius: 5px;
-            box-shadow: 0 0 5px rgba(0,0,0,0.1);
+            background-color: #fff;
+            box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
         }
-        pre { 
-            background-color: #f5f5f5; 
-            padding: 5px; 
-            border-radius: 4px; 
-            overflow-x: auto;
+        .scrollable {
+            max-height: 200px;
+            overflow-y: auto;
+            margin-bottom: 10px;
         }
-        strong { 
-            font-weight: bold; 
+        button {
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
         }
-        a { 
-            color: #007bff; 
-            text-decoration: none; 
-            word-wrap: break-word;
-            word-break: break-all;
-        }
-        a:hover { 
-            text-decoration: underline; 
+        button:hover {
+            background-color: #0056b3;
         }
     </style>
 </head>
 <body>
-    <h2>Captured API Calls and Errors</h2>
-    <ul id="api-list"></ul>
-    <button id="clear-logs">Clear Logs</button>
+
+    <div class="tabs">
+        <button id="apiTab" class="tablink active">Successful Calls</button>
+        <button id="errorTab" class="tablink">Failed Calls</button>
+    </div>
+
+    <div id="ApiCalls" class="tabcontent" style="display: block;">
+        <ul id="api-list" class="scrollable"></ul>
+        <button id="clear-api-logs">Clear API Logs</button>
+    </div>
+
+    <div id="Errors" class="tabcontent">
+        <ul id="error-list" class="scrollable"></ul>
+        <button id="clear-error-logs">Clear Error Logs</button>
+    </div>
+
     <script src="popup.js"></script>
+
 </body>
 </html>
+
+
+
+
+
 
 
 

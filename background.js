@@ -1,24 +1,19 @@
 let apiLogs = [];
+let errorLogs = [];
 
-function shouldIgnoreRequest(details) {
-  // Add conditions to filter out requests made by the extension itself
-  const ignoredInitiators = ["chrome-extension://<your-extension-id>"]; // Replace with your actual extension ID
-  const ignoredUrls = ["<url-to-ignore-1>", "<url-to-ignore-2>"]; // Add specific URLs to ignore
-
-  return (
-    ignoredInitiators.includes(details.initiator) ||
-    ignoredUrls.some((url) => details.url.includes(url))
-  );
+// Helper function to store logs
+function storeLogs(type, logs) {
+  const storageKey = type === "api" ? "apiLogs" : "errorLogs";
+  chrome.storage.local.set({ [storageKey]: logs }, function () {
+    console.log(
+      `${type === "api" ? "API" : "Error"} logs stored successfully.`
+    );
+  });
 }
 
-// Capture all API calls, regardless of status code
+// Capture all API calls to any URL that includes ".vndly.com/*"
 chrome.webRequest.onCompleted.addListener(
   function (details) {
-    // Filter out requests that should be ignored
-    if (shouldIgnoreRequest(details)) {
-      return;
-    }
-
     const apiDetails = {
       url: details.url,
       method: details.method,
@@ -32,8 +27,8 @@ chrome.webRequest.onCompleted.addListener(
     console.log("API Call Captured:", apiDetails);
     apiLogs.push(apiDetails);
 
-    // Save the logs to chrome.storage for persistence
-    chrome.storage.local.set({ apiLogs });
+    // Store logs persistently
+    storeLogs("api", apiLogs);
 
     // Notify the popup with the API call details
     try {
@@ -48,14 +43,9 @@ chrome.webRequest.onCompleted.addListener(
   { urls: ["https://the-internet.herokuapp.com/*"] }
 );
 
-// Capture Request Body for POST Requests
+// Capture Request Body for POST Requests to ".vndly.com/*"
 chrome.webRequest.onBeforeRequest.addListener(
   function (details) {
-    // Filter out requests that should be ignored
-    if (shouldIgnoreRequest(details)) {
-      return {};
-    }
-
     let requestBody = null;
 
     if (details.method === "POST" && details.requestBody) {
@@ -75,14 +65,9 @@ chrome.webRequest.onBeforeRequest.addListener(
   ["requestBody"]
 );
 
-// Monitor network failures
+// Monitor network failures for ".vndly.com/*"
 chrome.webRequest.onErrorOccurred.addListener(
   function (details) {
-    // Filter out requests that should be ignored
-    if (shouldIgnoreRequest(details)) {
-      return;
-    }
-
     console.warn("Network Error Captured:", details);
     chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
       chrome.tabs.sendMessage(tabs[0].id, {
@@ -94,4 +79,37 @@ chrome.webRequest.onErrorOccurred.addListener(
   { urls: ["https://the-internet.herokuapp.com/*"] }
 );
 
-console.log("Background script for capturing all API calls and errors started");
+// Capture console errors
+const originalConsoleError = console.error;
+console.error = function (...args) {
+  const errorDetails = {
+    type: "consoleError",
+    message: args.join(" "),
+    timestamp: new Date().toISOString(),
+  };
+  console.log("Console Error Captured:", errorDetails);
+  errorLogs.push(errorDetails);
+
+  // Store logs persistently
+  storeLogs("error", errorLogs);
+
+  chrome.runtime.sendMessage({ type: "consoleError", data: errorDetails });
+  originalConsoleError.apply(console, args);
+};
+
+// Clear logs and respond to messages
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  if (request.type === "getApiLogs") {
+    sendResponse(apiLogs || []);
+  } else if (request.type === "getErrorLogs") {
+    sendResponse(errorLogs || []);
+  } else if (request.type === "clearApiLogs") {
+    apiLogs = [];
+    chrome.storage.local.set({ apiLogs: [] });
+    sendResponse({ status: "success" });
+  } else if (request.type === "clearErrorLogs") {
+    errorLogs = [];
+    chrome.storage.local.set({ errorLogs: [] });
+    sendResponse({ status: "success" });
+  }
+});

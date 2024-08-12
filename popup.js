@@ -1,12 +1,86 @@
-// Retrieve and display logs when the popup opens
-chrome.storage.local.get(["apiLogs"], function (result) {
-  const logs = result.apiLogs || [];
-  displayLogs(logs); // Function to render logs in the popup
+document.addEventListener("DOMContentLoaded", function () {
+  // Tab switching functionality
+  document.getElementById("apiTab").addEventListener("click", function (event) {
+    openTab(event, "ApiCalls");
+  });
+  document
+    .getElementById("errorTab")
+    .addEventListener("click", function (event) {
+      openTab(event, "Errors");
+    });
+
+  // Retrieve and display API logs (only successful calls)
+  chrome.runtime.sendMessage({ type: "getApiLogs" }, (response) => {
+    if (chrome.runtime.lastError) {
+      console.error("Error retrieving API logs:", chrome.runtime.lastError);
+      displayLogs("api-list", []);
+    } else {
+      const successfulCalls = response.filter((log) => log.statusCode < 400);
+      displayLogs("api-list", successfulCalls);
+    }
+  });
+
+  // Retrieve and display Error logs (failed calls and other errors)
+  chrome.runtime.sendMessage({ type: "getApiLogs" }, (response) => {
+    if (chrome.runtime.lastError) {
+      console.error("Error retrieving Error logs:", chrome.runtime.lastError);
+      displayLogs("error-list", []);
+    } else {
+      const failedCalls = response.filter((log) => log.statusCode >= 400);
+      displayLogs("error-list", failedCalls);
+    }
+  });
+
+  // Clear API logs functionality
+  document
+    .getElementById("clear-api-logs")
+    .addEventListener("click", function () {
+      if (confirm("Are you sure you want to clear all API logs?")) {
+        chrome.runtime.sendMessage({ type: "clearApiLogs" }, (response) => {
+          if (response && response.status === "success") {
+            displayLogs("api-list", []);
+          }
+        });
+      }
+    });
+
+  // Clear Error logs functionality
+  document
+    .getElementById("clear-error-logs")
+    .addEventListener("click", function () {
+      if (confirm("Are you sure you want to clear all Error logs?")) {
+        chrome.runtime.sendMessage({ type: "clearErrorLogs" }, (response) => {
+          if (response && response.status === "success") {
+            displayLogs("error-list", []);
+          }
+        });
+      }
+    });
 });
 
-function displayLogs(logs) {
-  const logList = document.getElementById("api-list");
+function openTab(evt, tabName) {
+  const tabcontent = document.getElementsByClassName("tabcontent");
+  for (let i = 0; i < tabcontent.length; i++) {
+    tabcontent[i].style.display = "none";
+  }
+  const tablinks = document.getElementsByClassName("tablink");
+  for (let i = 0; i < tablinks.length; i++) {
+    tablinks[i].className = tablinks[i].className.replace(" active", "");
+  }
+  document.getElementById(tabName).style.display = "block";
+  evt.currentTarget.className += " active";
+}
+
+function displayLogs(listId, logs) {
+  const logList = document.getElementById(listId);
   logList.innerHTML = ""; // Clear previous logs
+
+  if (!logs || logs.length === 0) {
+    const listItem = document.createElement("li");
+    listItem.textContent = "No logs found.";
+    logList.appendChild(listItem);
+    return;
+  }
 
   logs.forEach((log) => {
     const listItem = document.createElement("li");
@@ -34,18 +108,3 @@ function displayLogs(logs) {
     logList.appendChild(listItem);
   });
 }
-
-// Clear logs functionality
-document.getElementById("clear-logs").addEventListener("click", function () {
-  if (confirm("Are you sure you want to clear all API logs?")) {
-    // Clear the stored API logs in chrome.storage
-    chrome.storage.local.set({ apiLogs: [] }, () => {
-      // Clear the UI
-      const apiList = document.getElementById("api-list");
-      apiList.innerHTML = "<li>No API calls captured.</li>";
-    });
-
-    // Clear in-memory logs by sending a message to the background script
-    chrome.runtime.sendMessage({ type: "clearApiLogs" });
-  }
-});
