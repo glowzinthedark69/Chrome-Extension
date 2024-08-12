@@ -1,38 +1,39 @@
-chrome.runtime.sendMessage({ type: "getApiLogs" }, (response) => {
-  const apiList = document.getElementById("api-list");
-  apiList.innerHTML = ""; // Clear the list first
-
-  if (response && response.length > 0) {
-    response.forEach((apiCall) => {
-      const listItem = document.createElement("li");
-      listItem.innerHTML = `
-          <div style="margin-bottom: 10px;">
-            <strong>Time:</strong> ${apiCall.timeStamp}<br>
-            <strong>Status Code:</strong> <span style="color: ${
-              apiCall.statusCode >= 500
-                ? "red"
-                : apiCall.statusCode >= 400
-                ? "orange"
-                : "green"
-            }">${apiCall.statusCode}</span><br>
-            <strong>URL:</strong> <a href="${
-              apiCall.url
-            }" target="_blank" class="url-truncate" title="${apiCall.url}">${
-        apiCall.url
-      }</a><br>
-            <strong>Method:</strong> ${apiCall.method}<br>
-            <strong>From Cache:</strong> ${apiCall.fromCache}<br>
-            <strong>IP:</strong> ${apiCall.ip}<br>
-            <strong>Initiator:</strong> ${apiCall.initiator}
-          </div>
-        `;
-
-      apiList.appendChild(listItem);
-    });
-  } else {
-    apiList.innerHTML = "<li>No API calls captured.</li>";
-  }
+// Retrieve and display logs when the popup opens
+chrome.storage.local.get(["apiLogs"], function (result) {
+  const logs = result.apiLogs || [];
+  displayLogs(logs); // Function to render logs in the popup
 });
+
+function displayLogs(logs) {
+  const logList = document.getElementById("api-list");
+  logList.innerHTML = ""; // Clear previous logs
+
+  logs.forEach((log) => {
+    const listItem = document.createElement("li");
+    listItem.innerHTML = `
+        <div style="margin-bottom: 10px;">
+          <strong>Time:</strong> ${log.timeStamp}<br>
+          <strong>Status Code:</strong> <span style="color: ${
+            log.statusCode >= 500
+              ? "red"
+              : log.statusCode >= 400
+              ? "orange"
+              : "green"
+          }">${log.statusCode}</span><br>
+          <strong>URL:</strong> <a href="${
+            log.url
+          }" target="_blank" class="url-truncate" title="${log.url}">${
+      log.url
+    }</a><br>
+          <strong>Method:</strong> ${log.method}<br>
+          <strong>From Cache:</strong> ${log.fromCache}<br>
+          <strong>IP:</strong> ${log.ip}<br>
+          <strong>Initiator:</strong> ${log.initiator}
+        </div>
+      `;
+    logList.appendChild(listItem);
+  });
+}
 
 // Clear logs functionality
 document.getElementById("clear-logs").addEventListener("click", function () {

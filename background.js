@@ -1,8 +1,24 @@
 let apiLogs = [];
 
+function shouldIgnoreRequest(details) {
+  // Add conditions to filter out requests made by the extension itself
+  const ignoredInitiators = ["chrome-extension://<your-extension-id>"]; // Replace with your actual extension ID
+  const ignoredUrls = ["<url-to-ignore-1>", "<url-to-ignore-2>"]; // Add specific URLs to ignore
+
+  return (
+    ignoredInitiators.includes(details.initiator) ||
+    ignoredUrls.some((url) => details.url.includes(url))
+  );
+}
+
 // Capture all API calls, regardless of status code
 chrome.webRequest.onCompleted.addListener(
   function (details) {
+    // Filter out requests that should be ignored
+    if (shouldIgnoreRequest(details)) {
+      return;
+    }
+
     const apiDetails = {
       url: details.url,
       method: details.method,
@@ -29,12 +45,17 @@ chrome.webRequest.onCompleted.addListener(
       console.warn("No listener available for the message:", error);
     }
   },
-  { urls: ["<all_urls>"] }
+  { urls: ["https://the-internet.herokuapp.com/*"] }
 );
 
 // Capture Request Body for POST Requests
 chrome.webRequest.onBeforeRequest.addListener(
   function (details) {
+    // Filter out requests that should be ignored
+    if (shouldIgnoreRequest(details)) {
+      return {};
+    }
+
     let requestBody = null;
 
     if (details.method === "POST" && details.requestBody) {
@@ -50,19 +71,27 @@ chrome.webRequest.onBeforeRequest.addListener(
 
     return {};
   },
-  { urls: ["<all_urls>"] },
+  { urls: ["https://the-internet.herokuapp.com/*"] },
   ["requestBody"]
 );
 
-// Clear in-memory logs when requested
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  if (request.type === "clearApiLogs") {
-    apiLogs = []; // Clear in-memory logs
-    chrome.storage.local.set({ apiLogs: [] }); // Clear persistent logs
-    console.log("API logs cleared");
-  } else if (request.type === "getApiLogs") {
-    sendResponse(apiLogs);
-  }
-});
+// Monitor network failures
+chrome.webRequest.onErrorOccurred.addListener(
+  function (details) {
+    // Filter out requests that should be ignored
+    if (shouldIgnoreRequest(details)) {
+      return;
+    }
 
-console.log("Background script for capturing all API calls started");
+    console.warn("Network Error Captured:", details);
+    chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
+      chrome.tabs.sendMessage(tabs[0].id, {
+        type: "networkError",
+        url: details.url,
+      });
+    });
+  },
+  { urls: ["https://the-internet.herokuapp.com/*"] }
+);
+
+console.log("Background script for capturing all API calls and errors started");
